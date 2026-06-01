@@ -1,0 +1,14 @@
+services:
+  sale_monitoring_bot:
+    build: .
+    container_name: sale_monitoring_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Yekaterinburg}
+    volumes:
+      - sale_monitoring_bot_logs:/var/log/sale_monitoring_bot
+
+volumes:
+  sale_monitoring_bot_logs:

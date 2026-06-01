@@ -1,0 +1,71 @@
+# sale_monitoring_bot
+
+Сервис мониторинга продаж Kit Vending: дважды в сутки формирует отчёты и отправляет их в YouGile и Telegram.
+
+## Сценарии
+
+| Время (TZ) | Команда | Описание |
+|------------|---------|----------|
+| 08:00 | `python -m sale_monitoring_bot` | Сравнение вчера со средним за N−1 дней (без сегодня) |
+| 15:00 | `python -m sale_monitoring_bot --no-sales-today` | Аппараты без продаж за сегодня |
+
+При отсутствии отклонений в чат уходит сообщение, что всё в норме.
+
+## Настройка
+
+Скопируйте `.env.example` в `.env` и заполните переменные.
+
+### YouGile: получить `YOUGILE_API_KEY` и `YOUGILE_CHAT_ID`
+
+1. Укажите в `.env` `YOUGILE_LOGIN` и `YOUGILE_PASSWORD`, затем список компаний:
+   ```bash
+   uv run python -m sale_monitoring_bot --list-yougile-companies
+   ```
+2. Скопируйте `id` компании в `YOUGILE_COMPANY_ID` и получите ключ:
+   ```bash
+   uv run python -m sale_monitoring_bot --get-yougile-api-key
+   ```
+   Результат сохраните в `YOUGILE_API_KEY` (API создаёт новый ключ при каждом вызове).
+3. Список групповых чатов (нужен `YOUGILE_API_KEY`):
+   ```bash
+   uv run python -m sale_monitoring_bot --list-yougile-group-chats
+   ```
+4. Скопируйте `id` нужного чата в `YOUGILE_CHAT_ID`.
+
+Отправка сообщений: `POST /chats/{chatId}/messages` с телом `{"text": "..."}`.
+
+Документация API: https://ru.yougile.com/api-v2#/
+
+## Локальный запуск
+
+```bash
+uv sync --dev
+uv run python -m sale_monitoring_bot --dev
+uv run python -m sale_monitoring_bot --no-sales-today --dev
+```
+
+## Docker
+
+Сборка из корня репозитория:
+
+```bash
+docker compose up -d --build
+```
+
+Клиент Kit API — `src/sale_monitoring_bot/infra/kit_client.py` (только `get_sales`, `get_vending_machines`).
+
+Логи cron: volume `sale_monitoring_bot_logs`, файл `/var/log/sale_monitoring_bot/cron.log`.
+
+## Переменные окружения
+
+| Переменная | Описание |
+|------------|----------|
+| `KIT_API_LOGIN`, `KIT_API_PASSWORD`, `KIT_API_COMPANY_ID` | Kit Vending API |
+| `YOUGILE_API_KEY`, `YOUGILE_CHAT_ID` | YouGile (отчёты) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram (отчёты) |
+| `YOUGILE_LOGIN`, `YOUGILE_PASSWORD`, `YOUGILE_COMPANY_ID` | Получение API-ключа |
+| `YOUGILE_BASE_URL` | По умолчанию `https://ru.yougile.com/api-v2` |
+| `DAYS_FOR_AVERAGE` | N (≥ 2) |
+| `SALES_DROP_PERCENT` | Порог падения в % (0–100) |
+| `TZ` | Таймзона (по умолчанию `Asia/Yekaterinburg`) |
+| `LAST_SALE_LOOKUP_DAYS` | Окно поиска последней продажи (по умолчанию 10) |
