@@ -31,9 +31,7 @@ def test_compare_average_and_drop_percent() -> None:
     yesterday = today - timedelta(days=1)
     n_days = 6
 
-    average_days = [
-        today - timedelta(days=offset) for offset in range(n_days, 1, -1)
-    ]
+    average_days = [today - timedelta(days=offset) for offset in range(n_days, 1, -1)]
     assert len(average_days) == 5
     assert yesterday not in average_days
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, time, timedelta
 
 from beartype import beartype
@@ -12,6 +13,8 @@ from sale_monitoring_bot.domain.entities import (
     VendingMachineInfo,
 )
 from sale_monitoring_bot.domain.grouping import (
+    build_ping_index,
+    collect_offline_machines,
     group_sales_by_machine,
     last_sale_timestamp,
     sum_sales_by_day,
@@ -39,12 +42,21 @@ class ScenarioCompareService:
 
         machines = await self._gateway.get_active_machines()
         fetch_from = min(analysis_from, lookup_from)
-        sales = await self._gateway.get_sales(from_date=fetch_from, to_date=now)
+        states, sales = await asyncio.gather(
+            self._gateway.get_vm_states(),
+            self._gateway.get_sales(from_date=fetch_from, to_date=now),
+        )
+        ping_index = build_ping_index(states)
+        offline_items = collect_offline_machines(
+            machines,
+            ping_index,
+            now,
+            self._settings.offline_ping_threshold_minutes,
+        )
         sales_by_key = group_sales_by_machine(sales)
 
         average_days = [
-            today - timedelta(days=offset)
-            for offset in range(n_days, 1, -1)
+            today - timedelta(days=offset) for offset in range(n_days, 1, -1)
         ]
 
         no_sales_items: list[NoSalesItem] = []
@@ -57,9 +69,7 @@ class ScenarioCompareService:
 
             if yesterday_total <= 0.0:
                 lookup_sales = [
-                    sale
-                    for sale in vm_sales
-                    if sale.timestamp >= lookup_from
+                    sale for sale in vm_sales if sale.timestamp >= lookup_from
                 ]
                 no_sales_items.append(
                     NoSalesItem(
@@ -69,9 +79,7 @@ class ScenarioCompareService:
                 )
                 continue
 
-            average_total = sum(
-                sum_sales_by_day(vm_sales, day) for day in average_days
-            )
+            average_total = sum(sum_sales_by_day(vm_sales, day) for day in average_days)
             divisor = n_days - 1
             average = average_total / divisor
 
@@ -89,4 +97,5 @@ class ScenarioCompareService:
         return CompareReport(
             no_sales_yesterday=no_sales_items,
             sales_decline=decline_items,
+            offline_items=offline_items,
         )

@@ -40,7 +40,9 @@ class Settings(BaseSettings):
     sales_drop_percent: int = Field(ge=0, le=100)
 
     tz: str = "Asia/Yekaterinburg"
+    kit_api_tz: str = "Europe/Moscow"
     last_sale_lookup_days: int = Field(default=10, ge=1)
+    offline_ping_threshold_minutes: int = Field(default=25, ge=1)
 
     @field_validator("yougile_base_url")
     @classmethod
@@ -50,6 +52,10 @@ class Settings(BaseSettings):
     @property
     def zoneinfo(self) -> ZoneInfo:
         return ZoneInfo(self.tz)
+
+    @property
+    def kit_api_zoneinfo(self) -> ZoneInfo:
+        return ZoneInfo(self.kit_api_tz)
 
     @property
     def kit_account(self) -> KitAPIAccount:

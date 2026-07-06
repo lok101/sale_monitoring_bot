@@ -8,6 +8,7 @@ from beartype import beartype
 from sale_monitoring_bot.domain.entities import (
     CompareReport,
     NoSalesItem,
+    OfflineItem,
     ReportScenario,
     SalesDeclineItem,
     TodayReport,
@@ -32,19 +33,30 @@ class ReportFormatter:
 
     @beartype
     def format_today(self, report: TodayReport) -> str:
-        if not report.items:
-            return ""
-        items = [self._format_no_sales_item(item) for item in report.items]
-        heading = f"Аппараты без продаж за {self._format_day_label(self._today())}:"
-        return self._format_block(heading, items)
+        sections: list[str] = []
+
+        if report.offline_items:
+            sections.append(self._format_offline_block(report.offline_items))
+
+        if report.items:
+            items = [self._format_no_sales_item(item) for item in report.items]
+            heading = f"Аппараты без продаж за {self._format_day_label(self._today())}:"
+            sections.append(self._format_block(heading, items))
+
+        return "\n\n".join(sections)
 
     @beartype
     def format_compare(self, report: CompareReport) -> str:
         sections: list[str] = []
         yesterday_label = self._format_day_label(self._yesterday())
 
+        if report.offline_items:
+            sections.append(self._format_offline_block(report.offline_items))
+
         if report.no_sales_yesterday:
-            items = [self._format_no_sales_item(item) for item in report.no_sales_yesterday]
+            items = [
+                self._format_no_sales_item(item) for item in report.no_sales_yesterday
+            ]
             sections.append(
                 self._format_block(f"Аппараты без продаж за {yesterday_label}:", items)
             )
@@ -61,8 +73,21 @@ class ReportFormatter:
         return f"{heading}\n\n{body}"
 
     @beartype
+    def _format_offline_block(self, items: list[OfflineItem]) -> str:
+        body = [self._format_offline_item(item) for item in items]
+        return self._format_block("Аппараты без связи:", body)
+
+    @beartype
+    def _format_offline_item(self, item: OfflineItem) -> str:
+        return (
+            f"{item.machine.name}\n{self._format_last_ping(item.last_ping_timestamp)}"
+        )
+
+    @beartype
     def _format_no_sales_item(self, item: NoSalesItem) -> str:
-        return f"{item.machine.name}\n{self._format_last_sale(item.last_sale_timestamp)}"
+        return (
+            f"{item.machine.name}\n{self._format_last_sale(item.last_sale_timestamp)}"
+        )
 
     @beartype
     def _format_decline_item(self, item: SalesDeclineItem) -> str:
@@ -83,10 +108,15 @@ class ReportFormatter:
         return day.strftime("%d.%m.%y")
 
     @beartype
+    def _format_last_ping(self, timestamp: datetime | None) -> str:
+        if timestamp is None:
+            return "Последний пинг: неизвестно"
+        formatted = timestamp.strftime("%d.%m.%Y %H:%M")
+        return f"Последний пинг: {formatted}"
+
+    @beartype
     def _format_last_sale(self, timestamp: datetime | None) -> str:
         if timestamp is None:
-            return (
-                f"Последняя продажа: более {self._last_sale_lookup_days} дней назад"
-            )
+            return f"Последняя продажа: более {self._last_sale_lookup_days} дней назад"
         formatted = timestamp.strftime("%d.%m.%Y %H:%M")
         return f"Последняя продажа: {formatted}"

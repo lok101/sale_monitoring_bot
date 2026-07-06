@@ -7,6 +7,7 @@ from sale_monitoring_bot.infra.kit_client import (
     KitVendingAPIClient,
     SaleModel,
     VendingMachineModel,
+    VMStateModel,
 )
 
 from sale_monitoring_bot.config import Settings
@@ -25,8 +26,14 @@ class KitGateway:
         return build_machine_catalog(models)
 
     @beartype
-    async def get_sales(self, from_date: datetime, to_date: datetime) -> list[SaleModel]:
+    async def get_sales(
+        self, from_date: datetime, to_date: datetime
+    ) -> list[SaleModel]:
         return await self._client.get_sales(from_date=from_date, to_date=to_date)
+
+    @beartype
+    async def get_vm_states(self) -> list[VMStateModel]:
+        return await self._client.get_vm_states()
 
     @beartype
     async def close(self) -> None:

@@ -149,11 +149,30 @@ except ValueError as exc:
     ) from exc
 
 
+def _parse_optional_kit_datetime(val: object) -> datetime | None:
+    if val is None or val == "":
+        return None
+    if not isinstance(val, str):
+        raise TypeError("DateTime must be str or empty")
+    return _KitDateTime.from_api_str(val)
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class KitAPIAccount:
     login: str
     password: str
     company_id: int
+
+
+class VMStateModel(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: Annotated[int, Field(validation_alias="VendingMachineId")]
+    last_ping: Annotated[
+        datetime | None,
+        Field(validation_alias="DateTime"),
+        BeforeValidator(_parse_optional_kit_datetime),
+    ] = None
 
 
 class SaleModel(BaseModel):
@@ -255,6 +274,22 @@ class KitVendingAPIClient:
         response = await self._post(url, build_data)
         return [
             VendingMachineModel.model_validate(item)
+            for item in response["VendingMachines"]
+        ]
+
+    async def get_vm_states(
+        self,
+        account: KitAPIAccount | None = None,
+    ) -> list[VMStateModel]:
+        url = f"{self._BASE_URL}/GetVMStates"
+
+        async def build_data() -> dict[str, Any]:
+            request_id = int(time.time_ns())
+            return {"Auth": self._build_auth(request_id, account)}
+
+        response = await self._post(url, build_data)
+        return [
+            VMStateModel.model_validate(item)
             for item in response["VendingMachines"]
         ]
 

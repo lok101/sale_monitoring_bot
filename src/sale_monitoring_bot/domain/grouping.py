@@ -3,12 +3,16 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from collections.abc import Iterable
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from beartype import beartype
-from sale_monitoring_bot.infra.kit_client import SaleModel, VendingMachineModel
+from sale_monitoring_bot.infra.kit_client import (
+    SaleModel,
+    VendingMachineModel,
+    VMStateModel,
+)
 
-from sale_monitoring_bot.domain.entities import VendingMachineInfo
+from sale_monitoring_bot.domain.entities import OfflineItem, VendingMachineInfo
 
 _INACTIVE_NAME_RE = re.compile(r"^\[\s*[ХхXx]\s*\]", re.IGNORECASE)
 
@@ -37,7 +41,9 @@ def group_sales_by_machine(sales: Iterable[SaleModel]) -> dict[str, list[SaleMod
 
 
 @beartype
-def build_machine_catalog(models: Iterable[VendingMachineModel]) -> dict[str, VendingMachineInfo]:
+def build_machine_catalog(
+    models: Iterable[VendingMachineModel],
+) -> dict[str, VendingMachineInfo]:
     by_key: dict[str, VendingMachineInfo] = {}
     for model in models:
         if not is_active_machine(model.name):
@@ -73,3 +79,36 @@ def last_sale_timestamp(sales: Iterable[SaleModel]) -> datetime | None:
 @beartype
 def has_sales_on_day(sales: Iterable[SaleModel], day: date) -> bool:
     return any(sale.timestamp.date() == day for sale in sales)
+
+
+@beartype
+def is_offline(
+    last_ping: datetime | None,
+    now: datetime,
+    threshold_minutes: int,
+) -> bool:
+    if last_ping is None:
+        return True
+    return now - last_ping >= timedelta(minutes=threshold_minutes)
+
+
+@beartype
+def build_ping_index(states: Iterable[VMStateModel]) -> dict[int, datetime | None]:
+    return {state.id: state.last_ping for state in states}
+
+
+@beartype
+def collect_offline_machines(
+    machines: dict[str, VendingMachineInfo],
+    ping_index: dict[int, datetime | None],
+    now: datetime,
+    threshold_minutes: int,
+) -> list[OfflineItem]:
+    items: list[OfflineItem] = []
+    for machine in machines.values():
+        last_ping = ping_index.get(machine.kit_id)
+        if not is_offline(last_ping, now, threshold_minutes):
+            continue
+        items.append(OfflineItem(machine=machine, last_ping_timestamp=last_ping))
+    items.sort(key=lambda item: item.machine.name)
+    return items

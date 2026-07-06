@@ -43,7 +43,16 @@ python_version = "3.12"
 packages = ["sale_monitoring_bot"]
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = "sale_monitoring_bot.infra.kit_client"
+disable_error_code = ["prop-decorator"]
+
 [tool.pyright]
 include = ["src"]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.20",
+]

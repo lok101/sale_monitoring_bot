@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from sale_monitoring_bot.project_paths import ENV_FILE, PROJECT_ROOT
 
 

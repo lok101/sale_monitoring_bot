@@ -112,19 +112,19 @@ async def _run(args: argparse.Namespace, settings: Settings) -> None:
 
     client = KitVendingAPIClient(
         account=settings.kit_account,
-        timezone=settings.zoneinfo,
+        timezone=settings.kit_api_zoneinfo,
     )
     gateway = KitGateway(settings, client)
 
     try:
         if args.no_sales_today:
-            service = ScenarioTodayService(settings, gateway)
-            report = await service.build_report()
-            text = formatter.format_today(report)
+            today_service = ScenarioTodayService(settings, gateway)
+            today_report = await today_service.build_report()
+            text = formatter.format_today(today_report)
         else:
-            service = ScenarioCompareService(settings, gateway)
-            report = await service.build_report()
-            text = formatter.format_compare(report)
+            compare_service = ScenarioCompareService(settings, gateway)
+            compare_report = await compare_service.build_report()
+            text = formatter.format_compare(compare_report)
 
         if not text:
             text = formatter.format_all_ok(scenario)

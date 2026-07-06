@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from sale_monitoring_bot.domain.entities import (
     CompareReport,
     NoSalesItem,
+    OfflineItem,
     ReportScenario,
     SalesDeclineItem,
     TodayReport,
@@ -20,7 +21,10 @@ _TODAY_LABEL = "26.05.26"
 _YESTERDAY_LABEL = "25.05.26"
 
 
-def test_format_all_ok_uses_day_labels(monkeypatch) -> None:
+_OFFLINE_TS = datetime(2026, 7, 6, 12, 47, tzinfo=_TZ)
+
+
+def _patch_fixed_datetime(monkeypatch) -> ReportFormatter:
     formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
 
     class _FixedDatetime(datetime):
@@ -32,6 +36,11 @@ def test_format_all_ok_uses_day_labels(monkeypatch) -> None:
         "sale_monitoring_bot.services.report_formatter.datetime",
         _FixedDatetime,
     )
+    return formatter
+
+
+def test_format_all_ok_uses_day_labels(monkeypatch) -> None:
+    formatter = _patch_fixed_datetime(monkeypatch)
 
     assert _TODAY_LABEL in formatter.format_all_ok(ReportScenario.TODAY)
     assert "сегодня" not in formatter.format_all_ok(ReportScenario.TODAY)
@@ -41,28 +50,19 @@ def test_format_all_ok_uses_day_labels(monkeypatch) -> None:
 
 def test_format_today_empty_returns_empty_string() -> None:
     formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
-    assert formatter.format_today(TodayReport(items=[])) == ""
+    assert formatter.format_today(TodayReport(items=[], offline_items=[])) == ""
 
 
 def test_format_today_separates_machines_with_divider(monkeypatch) -> None:
-    formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
-
-    class _FixedDatetime(datetime):
-        @classmethod
-        def now(cls, tz=None):  # type: ignore[no-untyped-def]
-            return _REFERENCE
-
-    monkeypatch.setattr(
-        "sale_monitoring_bot.services.report_formatter.datetime",
-        _FixedDatetime,
-    )
+    formatter = _patch_fixed_datetime(monkeypatch)
 
     machine_b = VendingMachineInfo(key="202", name="[202] Снек", kit_id=2)
     report = TodayReport(
         items=[
             NoSalesItem(machine=_MACHINE, last_sale_timestamp=None),
             NoSalesItem(machine=machine_b, last_sale_timestamp=None),
-        ]
+        ],
+        offline_items=[],
     )
     text = formatter.format_today(report)
     assert text.count("---") == 1
@@ -73,17 +73,7 @@ def test_format_today_separates_machines_with_divider(monkeypatch) -> None:
 
 
 def test_format_compare_with_blocks(monkeypatch) -> None:
-    formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
-
-    class _FixedDatetime(datetime):
-        @classmethod
-        def now(cls, tz=None):  # type: ignore[no-untyped-def]
-            return _REFERENCE
-
-    monkeypatch.setattr(
-        "sale_monitoring_bot.services.report_formatter.datetime",
-        _FixedDatetime,
-    )
+    formatter = _patch_fixed_datetime(monkeypatch)
 
     ts = datetime(2026, 5, 20, 15, 30, tzinfo=_TZ)
     report = CompareReport(
@@ -93,6 +83,7 @@ def test_format_compare_with_blocks(monkeypatch) -> None:
         sales_decline=[
             SalesDeclineItem(machine=_MACHINE, drop_percent=42.6),
         ],
+        offline_items=[],
     )
     text = formatter.format_compare(report)
     assert _YESTERDAY_LABEL in text
@@ -100,3 +91,41 @@ def test_format_compare_with_blocks(monkeypatch) -> None:
     assert "Аппараты с падением продаж" in text
     assert "43%" in text
     assert "20.05.2026 15:30" in text
+
+
+def test_format_compare_offline_block_first(monkeypatch) -> None:
+    formatter = _patch_fixed_datetime(monkeypatch)
+    report = CompareReport(
+        offline_items=[
+            OfflineItem(machine=_MACHINE, last_ping_timestamp=_OFFLINE_TS),
+        ],
+        no_sales_yesterday=[],
+        sales_decline=[],
+    )
+    text = formatter.format_compare(report)
+    assert text.startswith("Аппараты без связи:")
+    assert "Последний пинг: 06.07.2026 12:47" in text
+
+
+def test_format_compare_offline_unknown_ping(monkeypatch) -> None:
+    formatter = _patch_fixed_datetime(monkeypatch)
+    report = CompareReport(
+        offline_items=[OfflineItem(machine=_MACHINE, last_ping_timestamp=None)],
+        no_sales_yesterday=[],
+        sales_decline=[],
+    )
+    text = formatter.format_compare(report)
+    assert "Последний пинг: неизвестно" in text
+
+
+def test_format_today_only_offline_returns_text(monkeypatch) -> None:
+    formatter = _patch_fixed_datetime(monkeypatch)
+    report = TodayReport(
+        items=[],
+        offline_items=[
+            OfflineItem(machine=_MACHINE, last_ping_timestamp=_OFFLINE_TS),
+        ],
+    )
+    text = formatter.format_today(report)
+    assert text != ""
+    assert "Аппараты без связи:" in text

@@ -18,6 +18,12 @@ class VendingMachineInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class OfflineItem:
+    machine: VendingMachineInfo
+    last_ping_timestamp: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class NoSalesItem:
     machine: VendingMachineInfo
     last_sale_timestamp: datetime | None
@@ -32,9 +38,11 @@ class SalesDeclineItem:
 @dataclass(frozen=True, slots=True)
 class TodayReport:
     items: list[NoSalesItem]
+    offline_items: list[OfflineItem]
 
 
 @dataclass(frozen=True, slots=True)
 class CompareReport:
     no_sales_yesterday: list[NoSalesItem]
     sales_decline: list[SalesDeclineItem]
+    offline_items: list[OfflineItem]
