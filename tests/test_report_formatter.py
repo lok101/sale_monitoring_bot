@@ -129,3 +129,29 @@ def test_format_today_only_offline_returns_text(monkeypatch) -> None:
     text = formatter.format_today(report)
     assert text != ""
     assert "Аппараты без связи:" in text
+
+
+def test_format_last_ping_converts_kit_api_tz_to_report_tz() -> None:
+    formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
+    moscow_ping = datetime(2026, 7, 6, 15, 0, tzinfo=ZoneInfo("Europe/Moscow"))
+    report = CompareReport(
+        offline_items=[OfflineItem(machine=_MACHINE, last_ping_timestamp=moscow_ping)],
+        no_sales_yesterday=[],
+        sales_decline=[],
+    )
+    text = formatter.format_compare(report)
+    assert "Последний пинг: 06.07.2026 17:00" in text
+
+
+def test_format_last_sale_converts_kit_api_tz_to_report_tz() -> None:
+    formatter = ReportFormatter(last_sale_lookup_days=10, tz=_TZ)
+    moscow_sale = datetime(2026, 5, 20, 13, 30, tzinfo=ZoneInfo("Europe/Moscow"))
+    report = CompareReport(
+        offline_items=[],
+        no_sales_yesterday=[
+            NoSalesItem(machine=_MACHINE, last_sale_timestamp=moscow_sale),
+        ],
+        sales_decline=[],
+    )
+    text = formatter.format_compare(report)
+    assert "Последняя продажа: 20.05.2026 15:30" in text

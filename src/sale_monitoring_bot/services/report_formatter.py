@@ -108,15 +108,21 @@ class ReportFormatter:
         return day.strftime("%d.%m.%y")
 
     @beartype
+    def _format_in_report_tz(self, timestamp: datetime) -> str:
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=self._tz)
+        else:
+            timestamp = timestamp.astimezone(self._tz)
+        return timestamp.strftime("%d.%m.%Y %H:%M")
+
+    @beartype
     def _format_last_ping(self, timestamp: datetime | None) -> str:
         if timestamp is None:
             return "Последний пинг: неизвестно"
-        formatted = timestamp.strftime("%d.%m.%Y %H:%M")
-        return f"Последний пинг: {formatted}"
+        return f"Последний пинг: {self._format_in_report_tz(timestamp)}"
 
     @beartype
     def _format_last_sale(self, timestamp: datetime | None) -> str:
         if timestamp is None:
             return f"Последняя продажа: более {self._last_sale_lookup_days} дней назад"
-        formatted = timestamp.strftime("%d.%m.%Y %H:%M")
-        return f"Последняя продажа: {formatted}"
+        return f"Последняя продажа: {self._format_in_report_tz(timestamp)}"

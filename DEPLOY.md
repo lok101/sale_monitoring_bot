@@ -104,7 +104,6 @@ nano .env
 | Переменная | Назначение |
 |------------|------------|
 | `KIT_API_LOGIN`, `KIT_API_PASSWORD`, `KIT_API_COMPANY_ID` | Kit Vending |
-| `YOUGILE_API_KEY`, `YOUGILE_CHAT_ID` | YouGile |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram |
 | `DAYS_FOR_AVERAGE`, `SALES_DROP_PERCENT` | логика отчётов |
 | `TZ` | таймзона cron (по умолчанию `Asia/Yekaterinburg`) |
@@ -159,18 +158,11 @@ docker compose exec sale_monitoring_bot \
   python -m sale_monitoring_bot --no-sales-today
 ```
 
-Только вывод в консоль, без отправки в YouGile/Telegram:
+Только вывод в консоль, без отправки в Telegram:
 
 ```bash
 docker compose exec sale_monitoring_bot \
   python -m sale_monitoring_bot --no-sales-today --dev
-```
-
-Список групповых чатов YouGile (нужен `YOUGILE_API_KEY` в `.env`):
-
-```bash
-docker compose exec sale_monitoring_bot \
-  python -m sale_monitoring_bot --list-yougile-group-chats
 ```
 
 ---
@@ -219,7 +211,7 @@ sudo systemctl start docker
 **`Нужен KIT_API_LOGIN` при старте контейнера**  
 Не создан или пустой `.env` в `sale_monitoring_bot`, либо запуск не из этой папки.
 
-**Отчёты не уходят в Telegram / YouGile**  
+**Отчёты не уходят в Telegram**  
 Проверьте токены и ID в `.env`, затем ручной запуск без `--dev` и логи:
 
 ```bash

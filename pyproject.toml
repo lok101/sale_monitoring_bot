@@ -1,7 +1,7 @@
 [project]
 name = "sale-monitoring-bot"
 version = "0.1.0"
-description = "Мониторинг продаж Kit Vending с отчётами в YouGile и Telegram"
+description = "Мониторинг продаж Kit Vending с отчётами в Telegram"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
